@@ -58,6 +58,17 @@ class BrowserTests(unittest.TestCase):
             self.chat.open("好友甲")
         self.assertEqual(cm.exception.code, "TARGET")
 
+    def test_loaded_conversation_wins_over_duplicate_search_categories(self):
+        self.page.evaluate("""() => {
+            document.querySelector('#results').append(document.querySelector('.SearchPanelitembox').cloneNode(true));
+            const row=document.createElement('div');
+            row.setAttribute('data-e2e','conversation-item');
+            row.innerHTML='<span class="conversationConversationItemtitle">好友甲</span>';
+            row.onclick=()=>{document.querySelector('.RightPanelHeadertitle').textContent='好友甲';};
+            document.body.prepend(row);
+        }""")
+        self.chat.open("好友甲")
+
     def test_prefix_is_not_identity(self):
         with self.assertRaises(SafeError):
             self.chat.open("好友")
