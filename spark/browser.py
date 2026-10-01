@@ -55,26 +55,31 @@ class Chat:
 
     def open(self, name: str):
         health(self.page)
-        search = unique(self.page.locator(SEARCH), "TARGET")
-        search.fill(name)
-        self.page.wait_for_timeout(1400)
-        health(self.page)
-        candidates = []
-        for row in visible(self.page.locator(SEARCH_ROWS)):
-            matches = [n for n in visible(row.locator(SEARCH_NAMES))
-                       if n.inner_text().strip() == name]
-            if matches:
-                buttons = visible(row.locator('[class*="SearchPanelitemchat_btn"]'))
-                if len(buttons) != 1:
-                    raise SafeError("TARGET")
-                candidates.append(buttons[0])
-        if not candidates:
-            # Only actual row containers; title nodes also matching the class
-            # substring are excluded. Hidden/stale titles never establish identity.
-            for row in visible(self.page.locator(CONVERSATIONS)):
-                if any(n.inner_text().strip() == name
-                       for n in visible(row.locator(CONVERSATION_NAMES))):
-                    candidates.append(row)
+        # Prefer a unique already-loaded conversation. This is both more stable
+        # and safer than choosing among multiple global-search categories.
+        conversations = []
+        for row in visible(self.page.locator(CONVERSATIONS)):
+            if any(n.inner_text().strip() == name
+                   for n in visible(row.locator(CONVERSATION_NAMES))):
+                conversations.append(row)
+        if len(conversations) > 1:
+            raise SafeError("TARGET")
+        if len(conversations) == 1:
+            candidates = conversations
+        else:
+            search = unique(self.page.locator(SEARCH), "TARGET")
+            search.fill(name)
+            self.page.wait_for_timeout(1400)
+            health(self.page)
+            candidates = []
+            for row in visible(self.page.locator(SEARCH_ROWS)):
+                matches = [n for n in visible(row.locator(SEARCH_NAMES))
+                           if n.inner_text().strip() == name]
+                if matches:
+                    buttons = visible(row.locator('[class*="SearchPanelitemchat_btn"]'))
+                    if len(buttons) != 1:
+                        raise SafeError("TARGET")
+                    candidates.append(buttons[0])
         if len(candidates) != 1:
             raise SafeError("TARGET")
         candidates[0].click(timeout=10_000)
