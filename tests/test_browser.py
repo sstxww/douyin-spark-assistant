@@ -69,6 +69,17 @@ class BrowserTests(unittest.TestCase):
         }""")
         self.chat.open("好友甲")
 
+    def test_nested_conversation_classes_do_not_count_as_extra_rows(self):
+        self.page.evaluate("""() => {
+            const row=document.createElement('div');
+            row.className='conversationConversationItemwrapper conversationConversationItemisStickOnTop';
+            row.innerHTML='<div class="conversationConversationItemrowArea2"><div class="conversationConversationItemtitleWrapper"><div class="conversationConversationItemtitle">好友甲</div></div></div>';
+            row.onclick=()=>{document.querySelector('.RightPanelHeadertitle').textContent='好友甲';};
+            document.body.prepend(row);
+            document.querySelector('#results').remove();
+        }""")
+        self.chat.open("好友甲")
+
     def test_prefix_is_not_identity(self):
         with self.assertRaises(SafeError):
             self.chat.open("好友")
