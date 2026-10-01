@@ -11,7 +11,9 @@ SEARCH_ROWS = '[class*="SearchPanelitembox"], [class*="SearchPanelitem-box"], [c
 SEARCH_NAMES = '[class*="SearchPanelitemtitle"], [class*="SearchPanelitemTitle"], [class*="SearchPanelitem_name"], [class*="SearchPanelitemname"]'
 CONVERSATIONS = '[data-e2e="conversation-item"], [class*="conversationConversationItem"]'
 CONVERSATION_NAMES = '[class*="conversationConversationItemtitle"], [class*="ConversationItemTitle"], [class*="conversation-item-title"]'
-HEADERS = '[class*="RightPanelHeadertitle"], [class*="RightPanelHeaderTitle"], [class*="RightPanelHeader_title"], [class*="chatHeadertitle"], [class*="ChatHeaderTitle"]'
+HEADERS = '[class*="RightPanelHeadertitle"], [class*="RightPanelHeaderTitle"], [class*="RightPanelHeader_title"], [class*="RightPanelHeader-title"], [class*="chatHeadertitle"], [class*="chatHeaderTitle"], [class*="chatHeader_title"], [class*="chatHeader-title"], [class*="ChatHeaderTitle"], [class*="ChatHeader_title"], [class*="ChatHeader-title"]'
+HEADER_CONTAINERS = '[class*="RightPanelHeader"], [class*="chatHeader"], [class*="ChatHeader"]'
+HEADER_FALLBACK_NAMES = '[class*="nickname"], [class*="Nickname"], [class*="name"], [class*="Name"]'
 EDITORS = '.DraftEditor-root [contenteditable="true"], [class*="messageEditor"] [contenteditable="true"], [contenteditable="true"][aria-label*="消息"], textarea[placeholder*="消息"]'
 SEND = '[class*="messageMsgInputpublishBtn"], .e2e-send-msg-bt, button[aria-label="发送"], [role="button"][aria-label="发送"]'
 OUTGOING = '[class*="messageMessageBoxmessageBox"]:has([class*="messageMessageBoxisFromMe"])'
@@ -89,8 +91,17 @@ class Chat:
 
     def confirm(self, name: str):
         health(self.page)
-        header = unique(self.page.locator(HEADERS), "HEADER")
-        if header.inner_text().strip() != name:
+        # Douyin changes hashed/header class variants frequently. Keep identity
+        # verification strict on TEXT, but allow the exact title to live under a
+        # visible header container instead of requiring one historical class.
+        matched = any(h.inner_text().strip() == name for h in visible(self.page.locator(HEADERS)))
+        if not matched:
+            for container in visible(self.page.locator(HEADER_CONTAINERS)):
+                if any(n.inner_text().strip() == name
+                       for n in visible(container.locator(HEADER_FALLBACK_NAMES))):
+                    matched = True
+                    break
+        if not matched:
             raise SafeError("HEADER")
         unique(self.page.locator(EDITORS))
 
