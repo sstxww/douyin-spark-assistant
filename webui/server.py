@@ -70,7 +70,7 @@ def create_app(root: Path | None = None, repository: str | None = None, hosts: s
         status = None
         if host not in permitted:
             status = 403
-        elif request.headers.get("sec-fetch-site") == "cross-site":
+        elif request.headers.get("sec-fetch-site") == "cross-site" and request.url.path != "/":
             status = 403
         if request.url.path.startswith("/api/") and request.url.path != "/api/bootstrap":
             if not secrets.compare_digest(request.headers.get("x-spark-csrf", ""), csrf):
