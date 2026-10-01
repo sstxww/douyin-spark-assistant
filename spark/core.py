@@ -15,7 +15,7 @@ TZ = timezone(timedelta(hours=8), "UTC+8")
 LOCAL = Path(__file__).resolve().parents[1] / ".local"
 ERRORS = {
     "CONFIG": "配置不完整或格式不正确，请重新保存配置。",
-    "AUTH": "登录已失效或未登录，请在本机重新扫码登录并上传。",
+    "AUTH": "登录已失效或未登录，请重新扫码登录并上传。",
     "RISK": "页面要求验证或限制操作；已停止，请本人在抖音中处理。",
     "TARGET": "没有找到唯一、精确匹配的好友；请为好友设置唯一备注。",
     "HEADER": "无法确认当前聊天对象，已停止，未发送。",
@@ -25,6 +25,14 @@ ERRORS = {
     "LEDGER": "去重记录不可用或写入失败；为避免重复，已停止发送。",
     "GITHUB": "GitHub 操作失败，请检查 gh 登录、仓库权限或网络。",
     "DISABLED": "自动发送尚未开启。",
+    "RESTORE": "仓库已有网页配置，请打开原 Codespace 或导入加密备份；不会覆盖原有去重密钥。",
+    "CAPACITY": "账号数据超过 GitHub 单个 Secret 容量，未上传；请重新登录减少状态数据。",
+    "STALE": "云端配置版本不一致或已更新，请重新发布并检查。",
+    "BUSY": "仍有任务运行或排队；已暂停新发送，请在 Actions 取消或等任务结束后重试。",
+    "CHECK": "请先对当前已发布版本执行全部账号的只检查，确认通过后再开启。",
+    "BACKUP": "加密备份无效或密码不正确，未导入任何数据。",
+    "LOGIN": "尚未确认登录成功，请在私有预览中完成扫码并核对账号。",
+    "DUPLICATE": "检测到相同账号的登录标识；请在原账号卡片重新登录，不要重复添加。",
     "INTERNAL": "运行遇到异常，已停止；请检查网络、依赖和网页版本。",
 }
 
@@ -161,6 +169,8 @@ def unpack_state(value: str) -> dict:
 
 def validate_state(state: dict) -> None:
     if not isinstance(state, dict) or not isinstance(state.get("cookies"), list):
+        raise SafeError("AUTH")
+    if any(not isinstance(c, dict) for c in state["cookies"]):
         raise SafeError("AUTH")
     if not any(c.get("name") and c.get("value") and
                (c.get("domain", "").lstrip(".") == "douyin.com" or

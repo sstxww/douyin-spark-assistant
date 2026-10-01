@@ -1,0 +1,15 @@
+{
+  "name": "火花小助手 · 私有网页配置",
+  "image": "mcr.microsoft.com/playwright/python:v1.58.0-noble",
+  "features": {"ghcr.io/devcontainers/features/github-cli:1": {}},
+  "remoteUser": "pwuser",
+  "runArgs": ["--init", "--shm-size=1g"],
+  "forwardPorts": [8765],
+  "portsAttributes": {"8765": {"label": "火花小助手（必须保持 Private）", "onAutoForward": "openBrowser"}},
+  "otherPortsAttributes": {"onAutoForward": "ignore"},
+  "postCreateCommand": "bash .devcontainer/install.sh",
+  "postStartCommand": "bash .devcontainer/start.sh",
+  "waitFor": "postCreateCommand",
+  "hostRequirements": {"cpus": 2, "memory": "4gb"},
+  "customizations": {"vscode": {"settings": {"files.exclude": {"**/.local": true}, "git.autofetch": false}}}
+}

@@ -34,6 +34,8 @@ def repository_check(repository: str):
 
 def set_enabled(repository: str, enabled: bool):
     repository_check(repository)
+    if enabled:
+        gh(["variable", "set", "SPARK_WEB_ENABLED", "--repo", repository, "--body", "false"])
     gh(["variable", "set", "SPARK_ENABLED", "--repo", repository,
         "--body", "true" if enabled else "false"])
 

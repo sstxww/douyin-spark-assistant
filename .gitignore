@@ -11,3 +11,9 @@ storage-state*.json
 cookie*.json
 artifacts/
 playwright-report/
+
+# Browser panel credentials and private backups
+*.spark-backup.json
+*.spark-backup
+.env*
+!*.example
