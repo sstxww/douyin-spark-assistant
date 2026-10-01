@@ -2,7 +2,7 @@
 import unittest
 import os
 from playwright.sync_api import sync_playwright
-from spark.browser import Chat, health
+from spark.browser import Chat, health, composer_text
 from spark.core import SafeError
 
 HTML = '''<!doctype html><meta charset="utf-8">
@@ -104,6 +104,54 @@ class BrowserTests(unittest.TestCase):
         with self.assertRaises(SafeError):
             self.chat.prepare("好友甲", "新消息")
         self.assertEqual(self.page.locator('#editor').inner_text(), '我的草稿')
+
+    def set_editor_kit(self, value):
+        self.page.locator('#editor').evaluate("""(e, text) => {
+            e.className='editor-kit-container messageEditorinputArea';
+            const line=document.createElement('div'); line.className='ace-line';
+            const span=document.createElement('span'); span.textContent=text;
+            line.append(span); e.replaceChildren(line);
+        }""", value)
+
+    def test_editor_kit_empty_caret_can_prepare_without_sending(self):
+        self.set_editor_kit('\u200b')
+        self.chat.prepare('好友甲', '🔥')
+        self.assertEqual(composer_text(self.page.locator('#editor')), '🔥')
+        self.assertEqual(self.page.locator('#messages').inner_text(), '')
+
+    def test_editor_kit_real_draft_is_not_overwritten(self):
+        self.set_editor_kit('\u200b我的草稿')
+        before=self.page.locator('#editor').inner_html()
+        with self.assertRaises(SafeError):
+            self.chat.prepare('好友甲', '🔥')
+        self.assertEqual(self.page.locator('#editor').inner_html(), before)
+
+    def test_editor_kit_boundary_only_preserves_emoji_joiner(self):
+        self.set_editor_kit('\u200b👩\u200d💻\ufeff')
+        self.assertEqual(composer_text(self.page.locator('#editor')), '👩\u200d💻')
+        self.set_editor_kit('甲\u200b乙')
+        self.assertEqual(composer_text(self.page.locator('#editor')), '甲\u200b乙')
+
+    def test_unknown_editor_zero_width_draft_still_stops(self):
+        self.page.locator('#editor').fill('\u200b')
+        with self.assertRaises(SafeError):
+            self.chat.prepare('好友甲', '🔥')
+        self.assertEqual(self.page.locator('#editor').inner_text(), '\u200b')
+
+    def test_editor_kit_image_draft_is_not_empty(self):
+        self.set_editor_kit('\u200b')
+        self.page.locator('#editor').evaluate("e => e.append(document.createElement('img'))")
+        before=self.page.locator('#editor').inner_html()
+        with self.assertRaises(SafeError):
+            self.chat.prepare('好友甲', '🔥')
+        self.assertEqual(self.page.locator('#editor').inner_html(), before)
+
+    def test_send_prepared_rechecks_exact_text_before_click(self):
+        self.chat.prepare('好友甲', '原计划')
+        self.page.locator('#editor').fill('已改动')
+        with self.assertRaises(SafeError):
+            self.chat.send_prepared('好友甲', '原计划', timeout=1)
+        self.assertEqual(self.page.locator('#messages').inner_text(), '')
 
     def test_new_bubble_confirmed(self):
         self.chat.prepare("好友甲", "本地测试消息")

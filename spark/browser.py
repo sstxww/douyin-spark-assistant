@@ -33,6 +33,26 @@ def unique(locator, code="EDITOR"):
     return items[0]
 
 
+def composer_text(editor):
+    """Read text without treating Editor Kit's boundary caret as a draft.
+
+    Only the observed editor-kit/ace-line shape gets this normalization.
+    Never delete internal zero-width characters or emoji joiners, and never
+    treat images, mentions or other non-text attachments as an empty draft.
+    """
+    if editor.evaluate("e => e.tagName") == "TEXTAREA":
+        return editor.input_value()
+    if editor.locator('img, video, audio, canvas, iframe, [contenteditable="false"]').count():
+        raise SafeError("EDITOR")
+    value = editor.inner_text()
+    is_editor_kit = editor.evaluate(
+        "e => e.classList.contains('editor-kit-container') && "
+        "e.classList.contains('messageEditorinputArea') && !!e.querySelector('.ace-line')")
+    if is_editor_kit:
+        return value.strip(" \t\r\n\u200b\ufeff")
+    return value
+
+
 def health(page):
     for text in ("安全验证", "完成验证", "验证身份", "操作频繁"):
         if visible(page.get_by_text(text, exact=True)):
@@ -113,13 +133,13 @@ class Chat:
     def prepare(self, name: str, text: str):
         self.confirm(name)
         editor = unique(self.page.locator(EDITORS))
-        current = editor.input_value() if editor.evaluate("e => e.tagName") == "TEXTAREA" else editor.inner_text()
+        current = composer_text(editor)
         if current.strip():
             raise SafeError("EDITOR")
         editor.click()
         self.page.keyboard.insert_text(text)
         self.page.wait_for_timeout(250)
-        actual = editor.input_value() if editor.evaluate("e => e.tagName") == "TEXTAREA" else editor.inner_text()
+        actual = composer_text(editor)
         if actual.strip() != text.strip():
             raise SafeError("EDITOR")
         unique(self.page.locator(SEND))  # Never guess an Enter-key behavior.
@@ -128,6 +148,8 @@ class Chat:
     def send_prepared(self, name: str, text: str, timeout=20.0, clean_window=3.0):
         # Caller MUST durably reserve the daily target before calling this method.
         self.confirm(name)
+        if composer_text(unique(self.page.locator(EDITORS))).strip() != text.strip():
+            raise SafeError("EDITOR")
         anchor = uuid.uuid4().hex
         self.page.locator(OUTGOING).evaluate_all(
             "(nodes, value) => nodes.forEach(e => e.setAttribute('data-spark-before', value))", anchor)
