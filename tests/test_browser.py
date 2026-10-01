@@ -67,6 +67,16 @@ class BrowserTests(unittest.TestCase):
             self.chat.confirm("好友乙")
         self.assertEqual(cm.exception.code, "HEADER")
 
+    def test_header_container_fallback_is_exact(self):
+        self.page.evaluate("""() => {
+            const title=document.querySelector('.RightPanelHeadertitle');
+            title.outerHTML='<div class="RightPanelHeader"><span class="currentNickname">好友甲</span></div>';
+        }""")
+        self.chat.confirm("好友甲")
+        with self.assertRaises(SafeError) as cm:
+            self.chat.confirm("好友")
+        self.assertEqual(cm.exception.code, "HEADER")
+
     def test_existing_draft_not_overwritten(self):
         self.page.locator('#editor').fill('我的草稿')
         with self.assertRaises(SafeError):
