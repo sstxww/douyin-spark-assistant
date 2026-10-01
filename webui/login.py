@@ -23,7 +23,8 @@ def account_hint(state: dict) -> str:
 
 
 class LoginBrowser:
-    def __init__(self):
+    def __init__(self, local: bool = False):
+        self.local = local
         self.pw = self.browser = self.context = self.page = None
         self.slot = None
         self.expires = 0.0
@@ -38,15 +39,22 @@ class LoginBrowser:
         self.slot = None
         self.expires = 0
 
-    async def start(self, slot: str):
+    async def start(self, slot: str, state: dict | None = None):
+        # Only our explicit local mode can restore a previously saved session.
+        # Never inspect the user's normal Chrome profile or intercept its traffic.
+        if state is not None:
+            if not self.local:
+                raise SafeError("LOGIN")
+            validate_state(state)
         await self.close()
         from playwright.async_api import async_playwright
         try:
             self.pw = await async_playwright().start()
-            self.browser = await self.pw.chromium.launch(headless=True)
+            self.browser = await self.pw.chromium.launch(headless=not self.local)
             # Clean isolated context: accounts never share cookies.
             self.context = await self.browser.new_context(locale="zh-CN", timezone_id="Asia/Shanghai",
-                                                        viewport={"width": 1280, "height": 800})
+                                                        viewport={"width": 1280, "height": 800},
+                                                        storage_state=state)
             self.page = await self.context.new_page()
             self.page.on("popup", lambda page: asyncio.create_task(page.close()))
             self.page.set_default_timeout(10_000)

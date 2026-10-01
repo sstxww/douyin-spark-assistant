@@ -4,6 +4,12 @@
 
 [![测试](https://github.com/sstxww/douyin-spark-assistant/actions/workflows/test.yml/badge.svg)](https://github.com/sstxww/douyin-spark-assistant/actions/workflows/test.yml)
 
+## 更简单：本机登录一次，后续复用
+
+Windows 双击 **`start-local.bat`** → 本机面板 → **在本机登录**。登录后保存 Cookie 和浏览器状态，之后优先复用，不需要每次在 Codespaces 扫码，也不必手工抓 Token。仍可选择多个账号、复用文案、发布到 GitHub Actions 每天执行。
+
+**登录态不是永久 Token；到期或遇到验证仍需重新登录。本机成功也需云端检查。** 私密文件只放在本机与 Actions Secrets，不要发到聊天或提交到仓库。[本机版说明](docs/LOCAL.md)
+
 ## 先点这里
 
 ### [→ 首次创建 GitHub 私有配置环境](https://codespaces.new/sstxww/douyin-spark-assistant?quickstart=1)

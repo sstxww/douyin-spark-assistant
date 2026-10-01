@@ -5,7 +5,7 @@
 <div class="shell">
   <aside>
     <a class="brand" href="/" aria-label="火花小助手首页"><span class="brand-icon">火</span><span>火花小助手<small>SPARK / PRIVATE CONSOLE</small></span></a>
-    <div class="workspace-tag"><span class="dot"></span> GitHub 私有工作区</div>
+    <div class="workspace-tag" id="workspaceLocation"><span class="dot"></span> GitHub 私有工作区</div>
     <nav aria-label="配置步骤">
       <button class="nav active" data-tab="github"><span>01</span>连接 GitHub</button>
       <button class="nav" data-tab="accounts"><span>02</span>账号与扫码登录</button>
@@ -19,16 +19,17 @@
     <div class="statusbar"><span id="githubState">GitHub：未连接</span><span id="publishState">本地草稿</span><span id="sendState">自动发送：读取中</span><button class="text-button" id="refreshCloud">刷新状态 ↻</button></div>
     <div id="notice" class="notice" role="status" aria-live="polite">请保持此页面的 Ports → 8765 为 Private。公开仓库不代表你的配置页面公开。</div>
 
+    <div id="localInfo" class="card" hidden><h3>本机登录一次，后续复用登录态</h3><p>在这台电脑弹出的独立抖音浏览器正常登录，然后回到面板保存。以后会优先加载已保存的 Cookie 和浏览器状态；失效或需要验证时仍须重新登录。不会读取你日常 Chrome 中的其他网站账号，也不会显示或要求你手工复制 Token。</p><p>本机凭据文件不加密，按密码保护。选好好友后发布到 Actions Secrets，云端检查通过才能开启每天发送。没有通过账号检查前，不能认定云端也能复用。</p></div>
     <section id="panel-github" class="panel">
       <div class="section-heading"><span class="step-number">01</span><div><h2>先连接你的 GitHub</h2><p>授权后，面板才能安全保存账号配置、开关和定时任务。</p></div></div>
       <div class="card"><h3>一次授权，不需要复制 Token</h3><p>点击按钮后，在 GitHub 官方页面输入这里显示的一次性验证码。只授权你本人拥有的仓库。</p>
         <div class="repository-label" id="repository">读取仓库…</div>
-        <div class="warning"><b>授权范围说明</b><p>此版本使用 GitHub CLI 的官方授权，申请 repo、workflow 等 GitHub CLI 权限（以官方授权页为准）；它并非仅限本仓库。凭据只保存在这个私有 Codespace，不上传到公开代码或 Actions。使用完可在 GitHub 设置中撤销 GitHub CLI 授权。</p></div>
+        <div class="warning"><b>授权范围说明</b><p id="authScopeDescription">此版本使用 GitHub CLI 的官方授权，申请 repo、workflow 等 GitHub CLI 权限（以官方授权页为准）；它并非仅限本仓库。凭据只保存在这个私有 Codespace，不上传到公开代码或 Actions。使用完可在 GitHub 设置中撤销 GitHub CLI 授权。</p></div>
         <label class="checkbox"><input type="checkbox" id="githubConsent">我理解授权范围，同意在当前私有工作区授权。</label>
         <button id="githubLogin" class="primary">连接 GitHub</button>
         <div id="deviceFlow" class="device-flow" hidden><span>一次性验证码</span><strong id="deviceCode">正在生成…</strong><div class="button-row"><button id="copyDevice">复制验证码</button><a class="button primary" href="https://github.com/login/device" target="_blank" rel="noopener noreferrer">打开 GitHub 官方授权页 ↗</a></div><p>请在 GitHub 页面完成授权，然后回来点“刷新状态”。验证码不要发给其他人。</p></div>
       </div>
-      <div class="two-columns"><div class="card compact"><h3>全程在浏览器内</h3><p>不需要安装 Python、Git 或浏览器插件。使用 GitHub 自带的 Codespaces 私有页面配置。</p></div><div class="card compact"><h3>配置完停止 Codespace</h3><p>每日发送由 Actions 运行，不依赖此页面在线。Codespaces 有计算与存储额度，超额可能收费；请检查账户预算。</p></div></div>
+      <div class="two-columns" id="cloudOnlyIntro"><div class="card compact"><h3>全程在浏览器内</h3><p>不需要安装 Python、Git 或浏览器插件。使用 GitHub 自带的 Codespaces 私有页面配置。</p></div><div class="card compact"><h3>配置完停止 Codespace</h3><p>每日发送由 Actions 运行，不依赖此页面在线。Codespaces 有计算与存储额度，超额可能收费；请检查账户预算。</p></div></div>
       <div class="section-footer"><button data-tab="accounts" class="primary">下一步：添加抖音账号 →</button></div>
     </section>
 
@@ -66,12 +67,12 @@
       </div>
       <div class="card"><div class="card-title"><h3>复用配置，手动执行</h3><span class="pill">同一天不重复发送</span></div><div class="inline-form"><select id="runAccount" class="grow"><option value="all">全部已启用账号</option></select><button id="checkSelected">只检查选中账号</button><button id="sendOnce" class="primary">按已保存文案发送一次</button></div><p class="muted small">复用的是已发布到云端的文案和对象；需要先开启发送。修改了草稿时，必须重新发布。这里没有绕过去重的“强制重发”。</p></div>
       <div class="card"><div class="card-title"><h3>运行记录</h3><a id="actionsLink" href="#" target="_blank" rel="noopener noreferrer">打开 GitHub Actions ↗</a></div><div id="runs" class="runs"><p class="muted">连接 GitHub 后查看运行记录。</p></div><div class="button-row"><button id="pause">暂停后续自动发送</button><button id="cancel" class="danger-text">紧急停止并取消任务</button></div><p class="muted small">暂停不撤回已发消息，已运行的任务需取消。成功状态也可能包含“当日已尝试，跳过”，请查看任务摘要。</p></div>
-      <details class="card"><summary>加密备份与恢复：以后换 Codespace 也能复用</summary><p>原 Codespace 停止后再启动，配置仍在。删除前导出备份；Actions Secrets 不能直接读回明文。备份包含登录和去重标识，密码请另行保管。</p><label for="backupPassword">备份密码（至少 12 个字符；不要使用账号密码）</label><input type="password" id="backupPassword" minlength="12" maxlength="256" autocomplete="new-password"><div class="button-row"><button id="exportBackup">导出加密备份</button><label class="button file-label">选择备份文件<input type="file" id="backupFile" accept=".json,.spark-backup" hidden></label><span id="backupFileName" class="muted">未选择文件</span><button id="importBackup">恢复备份</button></div></details>
-      <div class="warning"><b>运行范围</b><p>实验性网页自动化，不是抖音官方接口。扫码、验证码或云端网络限制可能导致登录失败；程序不会绕过验证。发送成功不等于火花一定延续，也不代替对方互动。配置完请停止 Codespace，并留意 Actions 是否仍在正常执行。</p></div>
+      <details class="card"><summary>加密备份与恢复：换电脑或工作区也能复用</summary><p id="backupHelp">原 Codespace 停止后再启动，配置仍在。删除前导出备份；Actions Secrets 不能直接读回明文。备份包含登录和去重标识，密码请另行保管。</p><label for="backupPassword">备份密码（至少 12 个字符；不要使用账号密码）</label><input type="password" id="backupPassword" minlength="12" maxlength="256" autocomplete="new-password"><div class="button-row"><button id="exportBackup">导出加密备份</button><label class="button file-label">选择备份文件<input type="file" id="backupFile" accept=".json,.spark-backup" hidden></label><span id="backupFileName" class="muted">未选择文件</span><button id="importBackup">恢复备份</button></div></details>
+      <div class="warning"><b>运行范围</b><p id="runtimeHelp">实验性网页自动化，不是抖音官方接口。扫码、验证码或云端网络限制可能导致登录失败；程序不会绕过验证。发送成功不等于火花一定延续，也不代替对方互动。配置完请停止 Codespace，并留意 Actions 是否仍在正常执行。</p></div>
     </section>
     <footer>代码公开，账号私密。只使用本人账号及好友同意的低频互动。<span>SPARK ASSISTANT / WEB V2</span></footer>
   </main>
 </div>
-<dialog id="loginDialog"><div class="dialog-head"><div><h2 id="loginTitle">抖音扫码登录</h2><p>点击预览内的“登录 / 扫码登录”，用手机抖音扫一扫。预览仅在私有页面显示，不上传截图。</p></div><button id="closeLogin" aria-label="关闭预览">关闭 ✕</button></div><div class="screen-wrap"><img id="loginFrame" alt="抖音私有登录预览，可点击操作"></div><div class="dialog-bottom"><button id="refreshFrame">刷新预览</button><label class="checkbox"><input type="checkbox" id="loginConsent">我已看到私信页面，并核对这是当前卡片对应的本人账号。</label><button id="finishLogin" class="primary">保存登录并导入会话</button></div><p class="muted small">二维码失效可点击预览内刷新。预览最多保留 15 分钟。额外验证无法完成时请停止，不保证云端登录一定成功。</p></dialog>
+<dialog id="loginDialog"><div class="dialog-head"><div><h2 id="loginTitle">抖音扫码登录</h2><p id="loginHelp">点击预览内的“登录 / 扫码登录”，用手机抖音扫一扫。预览仅在私有页面显示，不上传截图。</p></div><button id="closeLogin" aria-label="关闭预览">关闭 ✕</button></div><div class="screen-wrap"><img id="loginFrame" alt="抖音私有登录预览，可点击操作"></div><div class="dialog-bottom"><button id="refreshFrame">刷新预览</button><label class="checkbox"><input type="checkbox" id="loginConsent">我已看到私信页面，并核对这是当前卡片对应的本人账号。</label><button id="finishLogin" class="primary">保存登录并导入会话</button></div><p class="muted small" id="loginExpiryHelp">二维码失效可点击预览内刷新。预览最多保留 15 分钟。额外验证无法完成时请停止，不保证云端登录一定成功。</p></dialog>
 <script src="/static/app.js" defer></script>
 </body></html>

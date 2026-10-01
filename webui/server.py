@@ -34,11 +34,11 @@ def allowed_hosts() -> set[str]:
     return hosts
 
 
-def create_app(root: Path | None = None, repository: str | None = None, hosts: set | None = None) -> FastAPI:
-    private = root or Path(os.getenv("SPARK_WEB_HOME", str(ROOT / ".local" / "web")))
+def create_app(root: Path | None = None, repository: str | None = None, hosts: set | None = None, *, local: bool = False) -> FastAPI:
+    private = root or Path(os.getenv("SPARK_WEB_HOME", str(ROOT / ".local" / ("web-local" if local else "web"))))
     workspace = Workspace(private)
-    cloud = GitHubCloud(private, repository or detect_repository())
-    browser = LoginBrowser()
+    cloud = GitHubCloud(private, repository or detect_repository(), local_cli=local)
+    browser = LoginBrowser(local=local)
     csrf = secrets.token_urlsafe(32)
     permitted = hosts if hosts is not None else allowed_hosts()
     lock = asyncio.Lock()
@@ -116,7 +116,8 @@ def create_app(root: Path | None = None, repository: str | None = None, hosts: s
             raise SafeError("CONFIG") from None
 
     def view():
-        return {"ok": True, "workspace": public_view(workspace.data), "repository": cloud.repository}
+        return {"ok": True, "workspace": public_view(workspace.data), "repository": cloud.repository,
+                "runtime": {"local": local, "session_reuse": local}}
 
     @app.get("/")
     async def index():
@@ -130,7 +131,7 @@ def create_app(root: Path | None = None, repository: str | None = None, hosts: s
 
     @app.get("/health")
     async def health():
-        return {"ok": True}
+        return {"ok": True, "application": "spark-assistant", "local": local}
 
     @app.get("/api/bootstrap")
     async def bootstrap():
@@ -227,7 +228,11 @@ def create_app(root: Path | None = None, repository: str | None = None, hosts: s
         async with lock:
             workspace.account(data.get("slot"))
             async with browser.lock:
-                await browser.start(data["slot"])
+                if local:
+                    saved = copy.deepcopy(workspace.account(data["slot"]).get("state"))
+                    await browser.start(data["slot"], state=saved)
+                else:
+                    await browser.start(data["slot"])
         return {"ok": True, "slot": data["slot"]}
 
     @app.get("/api/login/frame")

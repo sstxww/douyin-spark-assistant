@@ -35,9 +35,12 @@ def detect_repository() -> str:
 
 
 class GitHubCloud:
-    def __init__(self, root: Path, repository: str):
+    def __init__(self, root: Path, repository: str, local_cli: bool = False):
         if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
             raise SafeError("CONFIG")
+        if local_cli and (os.getenv("CODESPACE_NAME") or os.getenv("CODESPACES") == "true"):
+            raise SafeError("CONFIG")
+        self.local_cli = local_cli
         self.repository = repository
         self.base = f"repos/{repository}"
         self.auth_root = root / "github-auth"
@@ -47,8 +50,12 @@ class GitHubCloud:
         # Codespaces' built-in token cannot reliably manage Actions Secrets.
         for name in ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN", "GH_PROMPT_DISABLED"):
             self.env.pop(name, None)
-        self.env.update(GH_CONFIG_DIR=str(self.auth_root), GH_HOST="github.com", BROWSER="true",
-                        GH_BROWSER="true", GH_COLOR_LABELS="0", NO_COLOR="1", LC_ALL="C.UTF-8")
+        # Explicit local mode uses the already authorized CLI/keyring, without
+        # reading, printing, copying, or uploading its token. Cloud stays isolated.
+        if not local_cli:
+            self.env["GH_CONFIG_DIR"] = str(self.auth_root)
+        self.env.update(GH_HOST="github.com", BROWSER="true", GH_BROWSER="true",
+                        GH_COLOR_LABELS="0", NO_COLOR="1", LC_ALL="C.UTF-8")
         self.auth = {"status": "idle", "code": "", "url": "https://github.com/login/device"}
         self.auth_task = None
         self.process = None

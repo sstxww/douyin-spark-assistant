@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let localMode = false;
 let csrf = '', ws = null, repository = '', selected = '', editorSlot = '', savedPayload = '';
 let activeLogin = '', loginReady = false, frameTimer = null, authTimer = null, frameURL = null, frameFetching = false;
 
@@ -56,12 +57,25 @@ function collect() {
 }
 function setView(data) {
   ws = data.workspace;
+  localMode = data.runtime?.local === true;
   repository = data.repository;
   if (!ws.accounts.some(a=>a.slot === selected)) selected = ws.accounts[0]?.slot || '';
   savedPayload = JSON.stringify(editable());
   render();
 }
 function render() {
+  $('localInfo').hidden = !localMode;
+  $('cloudOnlyIntro').hidden = localMode;
+  if (localMode) {
+    $('workspaceLocation').textContent = '本机私有配置 · 仅 127.0.0.1';
+    $('authScopeDescription').textContent = '本机模式复用这台电脑上 GitHub CLI 已有的授权，不复制或上传 GitHub Token。能否使用以顶部连接状态为准。尚未连接时才需要下面的官方授权；GitHub CLI 权限并非仅限本仓库。';
+    $('loginHelp').textContent = '请在弹出的本机抖音浏览器正常登录，支持网页提供的扫码、验证码或密码方式。已有登录态会优先复用。看到私信并核对账号后，回到此面板勾选并保存。不要把密码或 Cookie 发到聊天里。';
+    $('loginExpiryHelp').textContent = '登录窗口最多保留 15 分钟。登录态可能过期或被撤销，不存在永久有效保证。保存后，修改云端配置需要重新发布并检查。';
+    $('backupHelp').textContent = '本机关闭后重新打开，保存的登录态和配置仍在。换电脑或删除程序前导出加密备份；不要直接发送 workspace.json。Actions Secrets 不能直接读回明文。';
+    $('runtimeHelp').textContent = '实验性网页自动化，不是抖音官方接口。本机登录成功不保证 GitHub 云端接受相同登录态；必须先云端检查。遇到额外验证会停止，不绕过验证，也不保证火花结果。配置完成后可以关闭本机面板。';
+  }
+  document.querySelector('#loginDialog .screen-wrap').hidden = localMode;
+  $('refreshFrame').hidden = localMode;
   $('repository').textContent = repository;
   $('repoLink').href = `https://github.com/${repository}`;
   $('actionsLink').href = `https://github.com/${repository}/actions/workflows/spark-web.yml`;
@@ -71,7 +85,7 @@ function render() {
     <article class="card account-card"><h3><span class="slot">${escapeHTML(a.slot)}</span>${escapeHTML(a.label)}</h3>
       <span class="pill">${a.logged_in ? '已保存登录 · 需云端检查' : '尚未登录'}</span>
       <p>${a.enabled ? '参与计划' : '未参与计划'} · ${a.config.targets.filter(t=>t.enabled).length} 位已选好友<br><span class="small">${a.saved_at ? '保存于 '+escapeHTML(a.saved_at) : '扫码后登录信息仅保存在私有工作区和 Secrets。'}</span></p>
-      <div class="button-row"><button class="primary" data-login="${a.slot}">${a.logged_in ? '重新扫码' : '扫码登录'}</button><button data-edit="${a.slot}">设置好友</button></div>
+      <div class="button-row"><button class="primary" data-login="${a.slot}">${localMode ? (a.logged_in ? '打开抖音 / 复用登录态' : '在本机登录') : (a.logged_in ? '重新扫码' : '扫码登录')}</button><button data-edit="${a.slot}">设置好友</button></div>
       <button class="text-button" data-remove-account="${a.slot}">从草稿移除</button>
     </article>`).join('') : '<div class="empty">添加一个本人抖音账号，从扫码开始。</div>';
   $('selectedAccount').innerHTML = ws.accounts.map(a=>`<option value="${a.slot}">${a.slot} · ${escapeHTML(a.label)}</option>`).join('');
@@ -134,7 +148,7 @@ function updateAuth(data) {
 }
 async function refreshCloud() { updateAuth(await api('cloud')); }
 async function refreshFrame() {
-  if (!activeLogin || !loginReady || frameFetching || !$('loginDialog').open) return;
+  if (localMode || !activeLogin || !loginReady || frameFetching || !$('loginDialog').open) return;
   frameFetching=true;
   try {
     const blob=await api('login/frame',undefined,true);
@@ -147,16 +161,20 @@ async function refreshFrame() {
 async function openLogin(slot) {
   await syncDraft();
   activeLogin=slot; loginReady=false;
-  $('loginTitle').textContent=`${slot} · ${ws.accounts.find(a=>a.slot===slot).label} / 扫码登录`;
+  $('loginTitle').textContent=`${slot} · ${ws.accounts.find(a=>a.slot===slot).label} / ${localMode ? '本机登录与复用' : '扫码登录'}`;
   $('loginConsent').checked=false;
   $('loginFrame').removeAttribute('src');
   $('loginDialog').showModal();
   try {
     await api('login/start',{slot});
     loginReady=true;
-    await refreshFrame();
-    notice('在私有预览中完成扫码。看到私信后勾选确认，再保存登录。');
-    frameTimer=setInterval(()=>refreshFrame().catch(e=>notice(e.message,'error')),3000);
+    if (localMode) {
+      notice('本机抖音窗口已打开，优先复用已有登录态。登录完成后回到此面板确认保存。');
+    } else {
+      await refreshFrame();
+      notice('在私有预览中完成扫码。看到私信后勾选确认，再保存登录。');
+      frameTimer=setInterval(()=>refreshFrame().catch(e=>notice(e.message,'error')),3000);
+    }
   } catch(e) { await closeLogin(); throw e; }
 }
 async function closeLogin() {
@@ -263,7 +281,7 @@ $('sendOnce').addEventListener('click',event=>work(event.currentTarget,()=>run('
 $('enable').addEventListener('click',event=>work(event.currentTarget,async()=>{
   requirePublished();
   if (!confirm('我已核对所有账号、对象和文案，并确认好友愿意接收。开启每天自动发送？')) return;
-  await api('enable',{confirmed:true});await refreshCloud();notice('每日自动发送已开启。配置页不必常开，可以停止 Codespace。','success');
+  await api('enable',{confirmed:true});await refreshCloud();notice('每日自动发送已开启。配置页不必常开；本机可以关机，Codespace 可停止。','success');
 }));
 $('pause').addEventListener('click',event=>work(event.currentTarget,async()=>{await api('pause',{});await refreshCloud();notice('已暂停后续自动发送。已经运行的任务仍需取消，已发消息不会撤回。','success');}));
 $('cancel').addEventListener('click',event=>work(event.currentTarget,async()=>{
@@ -290,6 +308,10 @@ async function boot() {
   const response=await fetch('/api/bootstrap',{credentials:'same-origin'});
   csrf=(await response.json()).csrf;
   setView(await api('state'));
+  if (localMode) {
+    notice('这是本机模式：在本机登录并保存，之后复用登录态。登录态不是永久 Token；先选对象、发布和检查，再开启发送。');
+    go('accounts');
+  }
   await refreshCloud();
 }
 boot().catch(e=>notice(e.message||'加载失败，请刷新私有页面。','error'));
