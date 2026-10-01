@@ -24,7 +24,7 @@ def main() -> int:
             from spark.ledger import GitHubLedger
             ledger = GitHubLedger(os.getenv("GITHUB_REPOSITORY", ""), os.getenv("GITHUB_TOKEN", ""), day)
         from playwright.sync_api import sync_playwright
-        from spark.browser import CHAT_URL, Chat, health
+        from spark.browser import CHAT_URL, Chat, wait_chat_ready
         errors = 0
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
@@ -36,14 +36,14 @@ def main() -> int:
                         page = context.new_page()
                         page.set_default_timeout(10_000)
                         page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=60_000)
-                        page.wait_for_timeout(4500)
-                        health(page)
+                        wait_chat_ready(page)
                         chat = Chat(page)
                         for index, (target, text) in enumerate(targets, 1):
                             key = target_key(manifest["key"], cfg, target)
                             if ledger and ledger.contains(key):
                                 report(f"账号 {number} / 对象 {index}：今日已尝试，跳过，未重复发送。")
                                 continue
+                            report(f"账号 {number} / 对象 {index}：开始核对，尚未触发发送。")
                             chat.open(target.name)
                             if mode == "check":
                                 report(f"账号 {number} / 对象 {index}：对象与输入框检查通过；未发送。")
@@ -51,6 +51,7 @@ def main() -> int:
                             if today() != day:
                                 raise SafeError("LEDGER")
                             chat.prepare(target.name, text)
+                            report(f"账号 {number} / 对象 {index}：发送前校验通过。")
                             if not ledger.reserve(key):
                                 continue
                             chat.send_prepared(target.name, text)

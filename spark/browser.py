@@ -62,6 +62,29 @@ def health(page):
             raise SafeError("AUTH")
 
 
+def wait_chat_ready(page, timeout: float = 40.0):
+    """Wait for the existing chat list to hydrate, not a fixed startup sleep.
+
+    This helper never types or clicks and always honors login/risk screens.
+    An empty/unloaded account fails closed instead of guessing a recipient.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        health(page)
+        searches = visible(page.locator(SEARCH))
+        if len(searches) > 1:
+            raise SafeError("TARGET")
+        rows = visible(page.locator(CONVERSATIONS))
+        hydrated = any(any(n.inner_text().strip()
+                          for n in visible(row.locator(CONVERSATION_NAMES)))
+                       for row in rows)
+        if len(searches) == 1 and hydrated:
+            return
+        if time.monotonic() >= deadline:
+            raise SafeError("LOADING")
+        page.wait_for_timeout(250)
+
+
 def imported_contacts(page) -> list[str]:
     """Only the currently loaded conversation titles, not a full friend export."""
     health(page)

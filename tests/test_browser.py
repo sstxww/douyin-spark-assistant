@@ -2,7 +2,7 @@
 import unittest
 import os
 from playwright.sync_api import sync_playwright
-from spark.browser import Chat, health, composer_text
+from spark.browser import Chat, health, composer_text, wait_chat_ready
 from spark.core import SafeError
 
 HTML = '''<!doctype html><meta charset="utf-8">
@@ -171,6 +171,34 @@ class BrowserTests(unittest.TestCase):
         with self.assertRaises(SafeError) as cm:
             self.chat.send_prepared("好友甲", "等待测试", timeout=1, clean_window=0.3)
         self.assertEqual(cm.exception.code, "UNCERTAIN")
+
+    def test_ready_waits_for_delayed_chat_hydration_without_typing(self):
+        self.page.evaluate("""() => setTimeout(() => {
+            const row=document.createElement('div');
+            row.setAttribute('data-e2e','conversation-item');
+            row.innerHTML='<span class="conversationConversationItemtitle">好友甲</span>';
+            document.body.prepend(row);
+        }, 150)""")
+        wait_chat_ready(self.page, timeout=2)
+        self.assertEqual(self.page.locator('#editor').inner_text(), '')
+        self.assertEqual(self.page.locator('#messages').inner_text(), '')
+
+    def test_ready_does_not_accept_unhydrated_search_only_shell(self):
+        with self.assertRaises(SafeError) as cm:
+            wait_chat_ready(self.page, timeout=0.1)
+        self.assertEqual(cm.exception.code, 'LOADING')
+
+    def test_ready_never_waits_through_security_challenge(self):
+        self.page.evaluate("document.body.insertAdjacentHTML('afterbegin','<div>安全验证</div>')")
+        with self.assertRaises(SafeError) as cm:
+            wait_chat_ready(self.page, timeout=2)
+        self.assertEqual(cm.exception.code, 'RISK')
+
+    def test_ready_rejects_duplicate_search_controls(self):
+        self.page.evaluate("document.body.append(document.querySelector('input').cloneNode(true))")
+        with self.assertRaises(SafeError) as cm:
+            wait_chat_ready(self.page, timeout=2)
+        self.assertEqual(cm.exception.code, 'TARGET')
 
     def test_security_challenge_stops(self):
         self.page.evaluate("document.body.insertAdjacentHTML('beforeend','<div>安全验证</div>')")
