@@ -1,0 +1,13 @@
+.local/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.log
+.env
+.env.*
+!*.example
+storage-state*.json
+cookie*.json
+artifacts/
+playwright-report/

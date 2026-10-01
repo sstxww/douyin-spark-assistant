@@ -1,0 +1,51 @@
+name: 每日火花助手
+on:
+  schedule:
+    - cron: '17 12 * * *' # managed-spark-schedule
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check = 只检查不发送；send = 按已保存配置发送'
+        type: choice
+        options:
+          - check
+          - send
+        default: check
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: spark-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  spark:
+    if: github.event_name == 'workflow_dispatch' || vars.SPARK_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # Only used for the HMAC attempt ledger on spark-state.
+    steps:
+      - name: 获取代码
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: 安装 Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: 安装浏览器依赖
+        run: |
+          python -m pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: 执行检查或发送（不公开私人数据）
+        env:
+          SPARK_CONFIG: ${{ secrets.SPARK_CONFIG }}
+          DOUYIN_STATE: ${{ secrets.DOUYIN_STATE }}
+          SPARK_KEY: ${{ secrets.SPARK_KEY }}
+          SPARK_ENABLED: ${{ vars.SPARK_ENABLED }}
+          SPARK_MODE: ${{ github.event_name == 'schedule' && 'send' || inputs.mode }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python run.py
+# Intentionally no screenshot, trace, storage-state, or configuration uploads.
+# Intentionally no pull_request / pull_request_target event with secrets.
