@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 from .core import Config, SafeError, pack_state, to_cron
+from .schedule import daily_times
 
 
 def gh(args: list[str], data: str | None = None) -> str:
@@ -41,6 +42,15 @@ def set_enabled(repository: str, enabled: bool):
 
 
 def schedule_text(source: str, when: str) -> str:
+    secondary = "# managed-spark-morning"
+    if secondary in source:
+        first, second = daily_times(when)
+        source, count = re.subn(r"^    - cron: '[^']+' # managed-spark-morning$",
+                               lambda _: "    - cron: '" + to_cron(first) + "' " + secondary,
+                               source, flags=re.MULTILINE)
+        if count != 1:
+            raise SafeError("GITHUB")
+        when = second
     replacement = "    - cron: '" + to_cron(when) + "' # managed-spark-schedule"
     updated, count = re.subn(r"^    - cron: '[^']+' # managed-spark-schedule$",
                              lambda _: replacement, source, flags=re.MULTILINE)

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .core import Config, SafeError, save_private, to_cron, validate_state
+from .schedule import daily_times
 
 SLOTS = ("a1", "a2", "a3")
 MAX_TARGETS = 10  # Total enabled recipients, not ten per account.
@@ -119,7 +120,7 @@ def validate_workspace(raw: Any, deploy: bool = False) -> dict:
 
 def public_view(workspace: dict) -> dict:
     """Only this projection is allowed in regular browser responses. No credentials."""
-    return {"version": 2, "time": workspace["time"], "templates": workspace["templates"],
+    return {"version": 2, "time": workspace["time"], "daily_times": list(daily_times(workspace["time"])), "templates": workspace["templates"],
             "repository": workspace.get("repository", ""),
             "published": workspace.get("published", False),
             "accounts": [{"slot": a["slot"], "label": a["label"], "enabled": a["enabled"],

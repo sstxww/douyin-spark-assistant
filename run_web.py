@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import sys
 from run import report
-from spark.core import SafeError, target_key, today
+from spark.core import SafeError, today
+from spark.schedule import now_local, run_created_at, occurrence, occurrence_key
 from spark.web_config import cloud_accounts
 
 
@@ -15,7 +16,19 @@ def main() -> int:
         if mode == "send" and os.getenv("SPARK_WEB_ENABLED") != "true":
             raise SafeError("DISABLED")
         manifest, accounts = cloud_accounts(os.environ, os.getenv("SPARK_ACCOUNT", "all"))
-        day = today()
+        event = os.getenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+        period = None
+        created = run_created_at(os.environ)  # Check mode also verifies metadata access.
+        if mode == "send":
+            period = occurrence(manifest["time"], created, event,
+                                os.getenv("SPARK_SCHEDULE", ""))
+            if not period.active(now_local()):
+                report("本次运行对应的发送时段已结束或尚未开始；跳过，不补发。")
+                return 0
+            day = period.day
+            report(f"本次为 UTC+8 {day.isoformat()} 第 {period.index} 时段；每个对象每时段最多一次。")
+        else:
+            day = today()
         # Prepare all messages before opening a browser or writing a ledger.
         plans = [(slot, cfg, state, [(t, cfg.message(t, day)) for t in cfg.targets if t.enabled])
                  for slot, cfg, state in accounts]
@@ -39,21 +52,24 @@ def main() -> int:
                         wait_chat_ready(page)
                         chat = Chat(page)
                         for index, (target, text) in enumerate(targets, 1):
-                            key = target_key(manifest["key"], cfg, target)
+                            key = occurrence_key(manifest["key"], cfg, target, period.index if period else 1)
                             if ledger and ledger.contains(key):
-                                report(f"账号 {number} / 对象 {index}：今日已尝试，跳过，未重复发送。")
+                                report(f"账号 {number} / 对象 {index}：本时段已尝试，跳过，未重复发送。")
                                 continue
                             report(f"账号 {number} / 对象 {index}：开始核对，尚未触发发送。")
                             chat.open(target.name)
                             if mode == "check":
                                 report(f"账号 {number} / 对象 {index}：对象与输入框检查通过；未发送。")
                                 continue
-                            if today() != day:
+                            if not period.active(now_local()):
                                 raise SafeError("LEDGER")
                             chat.prepare(target.name, text)
                             report(f"账号 {number} / 对象 {index}：发送前校验通过。")
                             if not ledger.reserve(key):
                                 continue
+                            # Do not cross a slot/date boundary after a durable reservation.
+                            if not period.active(now_local()):
+                                raise SafeError("LEDGER")
                             chat.send_prepared(target.name, text)
                             ledger.confirm(key)
                             report(f"账号 {number} / 对象 {index}：页面确认新消息；火花请自行核对。")

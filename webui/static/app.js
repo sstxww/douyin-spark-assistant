@@ -81,6 +81,7 @@ function render() {
   $('actionsLink').href = `https://github.com/${repository}/actions/workflows/spark-web.yml`;
   $('publishState').textContent = ws.published ? '配置：已发布' : '配置：草稿 / 尚未发布';
   $('sendTime').value = ws.time;
+  renderSchedule();
   $('accountCards').innerHTML = ws.accounts.length ? ws.accounts.map(a => `
     <article class="card account-card"><h3><span class="slot">${escapeHTML(a.slot)}</span>${escapeHTML(a.label)}</h3>
       <span class="pill">${a.logged_in ? '已保存登录 · 需云端检查' : '尚未登录'}</span>
@@ -95,6 +96,15 @@ function render() {
   if ([...$('runAccount').options].some(o=>o.value===runSelection)) $('runAccount').value=runSelection;
   renderEditor();
 }
+function renderSchedule() {
+  const value = $('sendTime').value;
+  if (!/^\d{2}:\d{2}$/.test(value)) return;
+  const [hour, minute] = value.split(':').map(Number);
+  const first = hour % 12;
+  const fmt = h => String(h).padStart(2,'0')+':'+String(minute).padStart(2,'0');
+  $('scheduleSummary').textContent = `每天 ${fmt(first)}、${fmt(first+12)}（UTC+8）各一次；同一时段不重复发送。修改后需要重新发布和检查。`;
+}
+$('sendTime').addEventListener('input', renderSchedule);
 function renderEditor() {
   const a = account();
   editorSlot = a?.slot || '';
@@ -271,7 +281,7 @@ $('publish').addEventListener('click',event=>work(event.currentTarget,async()=>{
 },'正在校验、暂停发送并发布私密配置…'));
 async function run(mode,selection) {
   requirePublished();
-  if (mode==='send' && !confirm('确认按已发布配置发送真实私信？当天已经尝试过的好友会跳过；不会强制重复发送。')) return;
+  if (mode==='send' && !confirm('确认按已发布配置发送真实私信？本时段已经尝试过的好友会跳过；手动发送与定时共用名额，不会强制重复发送。')) return;
   await api('run',{mode,account:selection,confirmed:mode==='send'});
   await refreshCloud();notice(mode==='check'?'检查任务已提交；到运行记录确认通过后，再开启每日发送。':'发送任务已提交；请在运行记录和抖音中核对结果。','success');
 }
@@ -280,8 +290,8 @@ $('checkSelected').addEventListener('click',event=>work(event.currentTarget,()=>
 $('sendOnce').addEventListener('click',event=>work(event.currentTarget,()=>run('send',$('runAccount').value)));
 $('enable').addEventListener('click',event=>work(event.currentTarget,async()=>{
   requirePublished();
-  if (!confirm('我已核对所有账号、对象和文案，并确认好友愿意接收。开启每天自动发送？')) return;
-  await api('enable',{confirmed:true});await refreshCloud();notice('每日自动发送已开启。配置页不必常开；本机可以关机，Codespace 可停止。','success');
+  if (!confirm('我已核对所有账号、对象和文案，并确认好友愿意接收。开启每天两次自动发送？')) return;
+  await api('enable',{confirmed:true});await refreshCloud();notice('每日两次自动发送已开启。配置页不必常开；本机可以关机，Codespace 可停止。','success');
 }));
 $('pause').addEventListener('click',event=>work(event.currentTarget,async()=>{await api('pause',{});await refreshCloud();notice('已暂停后续自动发送。已经运行的任务仍需取消，已发消息不会撤回。','success');}));
 $('cancel').addEventListener('click',event=>work(event.currentTarget,async()=>{
