@@ -39,6 +39,12 @@ class WebAPITests(unittest.TestCase):
         self.assertEqual(self.client.get('/', headers={'Host': 'evil.example'}).status_code, 403)
         self.assertEqual(self.client.get('/api/state', headers={**self.headers, 'Sec-Fetch-Site': 'cross-site'}).status_code, 403)
 
+    def test_initial_navigation_from_github_is_allowed_but_api_stays_protected(self):
+        headers = {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate'}
+        self.assertEqual(self.client.get('/', headers=headers).status_code, 200)
+        self.assertEqual(self.client.get('/api/bootstrap', headers=headers).status_code, 403)
+        self.assertEqual(self.client.get('/api/state', headers={**self.headers, **headers}).status_code, 403)
+
     def test_private_files_not_served(self):
         self.assertEqual(self.client.get('/static/workspace.json').status_code, 404)
         self.assertEqual(self.client.get('/.local/web/workspace.json').status_code, 404)
