@@ -9,7 +9,7 @@ CHAT_URL = "https://www.douyin.com/chat"
 SEARCH = 'input[placeholder*="搜索"], input[aria-label*="搜索"]'
 SEARCH_ROWS = '[class*="SearchPanelitembox"], [class*="SearchPanelitem-box"], [class*="SearchPanelitem_box"]'
 SEARCH_NAMES = '[class*="SearchPanelitemtitle"], [class*="SearchPanelitemTitle"], [class*="SearchPanelitem_name"], [class*="SearchPanelitemname"]'
-CONVERSATIONS = '[data-e2e="conversation-item"], [class*="conversationConversationItem"]'
+CONVERSATIONS = '[data-e2e="conversation-item"], .conversationConversationItemwrapper'
 CONVERSATION_NAMES = '[class*="conversationConversationItemtitle"], [class*="ConversationItemTitle"], [class*="conversation-item-title"]'
 HEADERS = '[class*="RightPanelHeadertitle"], [class*="RightPanelHeaderTitle"], [class*="RightPanelHeader_title"], [class*="RightPanelHeader-title"], [class*="chatHeadertitle"], [class*="chatHeaderTitle"], [class*="chatHeader_title"], [class*="chatHeader-title"], [class*="ChatHeaderTitle"], [class*="ChatHeader_title"], [class*="ChatHeader-title"]'
 HEADER_CONTAINERS = '[class*="RightPanelHeader"], [class*="chatHeader"], [class*="ChatHeader"]'
