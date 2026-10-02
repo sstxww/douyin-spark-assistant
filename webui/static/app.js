@@ -156,7 +156,23 @@ function updateAuth(data) {
     return `<div class="run-row"><div>${validURL?`<a href="${escapeHTML(r.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(r.title)}</a>`:escapeHTML(r.title)}<time>${escapeHTML(new Date(r.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))} UTC+8</time></div><span class="run-status ${r.conclusion==='failure'?'failed':''}">${escapeHTML(conclusions[r.conclusion]||states[r.status]||r.status)}</span></div>`;
   }).join('') : '<p class="muted">暂无网页版运行记录。发布后点击“全部账号只检查”。</p>';
 }
-async function refreshCloud() { updateAuth(await api('cloud')); }
+async function refreshCloud() {
+  updateAuth(await api('cloud'));
+  if (localMode) {
+    $('watchdogCard').hidden = false;
+    const data = await api('watchdog');
+    const value = data.watchdog || {};
+    const labels = {confirmed:'本轮全部已确认，无需补发', dispatched:'已主动触发云端发送，等待结果',
+      not_due:'未到发送时间', paused:'发送已暂停', job_active:'已有任务运行，等待结果',
+      backoff:'等待下一次有限重试', needs_attention:'存在需本人核对的未完成项',
+      retry_exhausted:'本轮补漏次数已用完，需处理失败原因', check_required:'新代码需要先做全部账号检查',
+      plan_stale:'已发布配置已变化，请在本机重新发布', error:'补漏检查失败，稍后计划任务会再检查',
+      window_ending:'临近时段结束，不再启动新任务', not_installed:'尚无本机补漏运行记录'};
+    const age = value.checked_at ? Date.now() - new Date(value.checked_at).getTime() : Infinity;
+    const stamp = value.checked_at ? new Date(value.checked_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})+' UTC+8' : '尚未运行';
+    $('watchdogState').textContent = `${age > 12*60000 && value.checked_at ? '注意：超过 12 分钟未更新。' : ''}${labels[value.status] || '状态未知'} · 最近检查：${stamp} · 已确认 ${value.confirmed || 0} / 未开始 ${value.missing || 0} / 待核对 ${value.uncertain || 0}`;
+  }
+}
 async function refreshFrame() {
   if (localMode || !activeLogin || !loginReady || frameFetching || !$('loginDialog').open) return;
   frameFetching=true;

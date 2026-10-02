@@ -171,7 +171,7 @@ class TwiceDailyTests(unittest.TestCase):
         self.assertEqual(result,1)
         self.assertEqual(list(ledger.data['entries'].values()),['reserved'])
         result,chat=self.invoke_runner(ledger,at(10),at(10))
-        self.assertEqual(result,0)
+        self.assertEqual(result,1)  # reserved is uncertain, never successful delivery
         chat.send_prepared.assert_not_called()
 
     def test_runner_cross_date_and_late_morning_does_not_send(self):

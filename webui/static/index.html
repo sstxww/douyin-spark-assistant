@@ -20,6 +20,7 @@
     <div id="notice" class="notice" role="status" aria-live="polite">请保持此页面的 Ports → 8765 为 Private。公开仓库不代表你的配置页面公开。</div>
 
     <div id="localInfo" class="card" hidden><h3>本机登录一次，后续复用登录态</h3><p>在这台电脑弹出的独立抖音浏览器正常登录，然后回到面板保存。以后会优先加载已保存的 Cookie 和浏览器状态；失效或需要验证时仍须重新登录。不会读取你日常 Chrome 中的其他网站账号，也不会显示或要求你手工复制 Token。</p><p>本机凭据文件不加密，按密码保护。选好好友后发布到 Actions Secrets，云端检查通过才能开启每天发送。没有通过账号检查前，不能认定云端也能复用。</p></div>
+    <div id="watchdogCard" class="card" hidden><h3>独立自动补漏</h3><p id="watchdogState">正在读取本机计划任务状态…</p><p class="small muted">每 5 分钟核对本轮发送记录；GitHub 定时未触发时主动启动。每轮最多 6 次补漏触发，发送结果不确定不重发。电脑须开机联网并保持 Windows 登录；锁屏可用，注销后停止。此状态不是接收方回执。</p></div>
     <section id="panel-github" class="panel">
       <div class="section-heading"><span class="step-number">01</span><div><h2>先连接你的 GitHub</h2><p>授权后，面板才能安全保存账号配置、开关和定时任务。</p></div></div>
       <div class="card"><h3>一次授权，不需要复制 Token</h3><p>点击按钮后，在 GitHub 官方页面输入这里显示的一次性验证码。只授权你本人拥有的仓库。</p>

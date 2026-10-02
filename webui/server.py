@@ -282,7 +282,24 @@ def create_app(root: Path | None = None, repository: str | None = None, hosts: s
             revision, head = await asyncio.to_thread(cloud.publish, snapshot)
             snapshot.update(revision=revision, deployed_head=head, published=True, repository=cloud.repository)
             workspace.save(snapshot, changed=False)
+            if local:
+                from spark.watchdog import export_plan
+                export_plan(private, snapshot)
         return view()
+
+    @app.get("/api/watchdog")
+    async def watchdog_status():
+        if not local:
+            return {"ok": True, "available": False}
+        path = private / "watchdog-status.json"
+        try:
+            data = json.loads(path.read_text("utf-8"))
+            fields = ("checked_at", "status", "code", "confirmed", "missing", "uncertain",
+                      "slot", "day", "times", "dispatches", "codes")
+            return {"ok": True, "available": True,
+                    "watchdog": {key: data[key] for key in fields if key in data}}
+        except (OSError, ValueError, TypeError):
+            return {"ok": True, "available": True, "watchdog": {"status": "not_installed"}}
 
     @app.post("/api/run")
     async def run(request: Request):
