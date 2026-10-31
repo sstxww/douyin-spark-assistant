@@ -1,9 +1,9 @@
 name: 网页版 · 每日火花助手
 run-name: "${{ github.event_name == 'schedule' && '每日计划' || inputs.mode }} · ${{ github.event_name == 'schedule' && 'all' || inputs.account }} · ${{ github.event_name == 'schedule' && '自动' || inputs.revision }}"
 on:
-  schedule:
-    - cron: '17 0 * * *' # managed-spark-morning
-    - cron: '17 12 * * *' # managed-spark-schedule
+  # schedule:
+  #   - cron: '17 0 * * *' # managed-spark-morning
+  #   - cron: '17 12 * * *' # managed-spark-schedule
   workflow_dispatch:
     inputs:
       mode:
